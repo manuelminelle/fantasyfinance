@@ -1,0 +1,144 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Space Grotesk";
+  --font-display: "Fraunces";
+
+  --color-bg: 244 246 250;
+  --color-bg-2: 228 233 242;
+  --color-surface: 255 255 255;
+  --color-surface-2: 244 247 252;
+  --color-border: 200 210 230;
+  --color-text: 16 22 34;
+  --color-muted: 94 106 128;
+  --color-accent: 42 122 255;
+  --color-accent-2: 0 214 173;
+  --color-success: 24 178 105;
+  --color-warning: 244 174 57;
+  --color-danger: 230 72 72;
+
+  --glass-opacity: 0.7;
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: 10 14 24;
+  --color-bg-2: 18 24 38;
+  --color-surface: 16 22 34;
+  --color-surface-2: 26 33 49;
+  --color-border: 50 63 86;
+  --color-text: 232 236 244;
+  --color-muted: 152 164 186;
+  --color-accent: 118 188 255;
+  --color-accent-2: 57 221 191;
+  --color-success: 72 201 141;
+  --color-warning: 245 189 88;
+  --color-danger: 246 94 94;
+
+  --glass-opacity: 0.45;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
+  font-family: var(--font-sans), ui-sans-serif, system-ui;
+  letter-spacing: -0.01em;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .glass-panel {
+    background: rgba(255, 255, 255, var(--glass-opacity));
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 30px 80px -50px rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(22px);
+  }
+
+  :root[data-theme="dark"] .glass-panel {
+    background: rgba(15, 20, 34, var(--glass-opacity));
+    box-shadow: 0 30px 90px -50px rgba(3, 6, 15, 0.9);
+  }
+
+  .glass-highlight {
+    position: relative;
+  }
+
+  .glass-highlight::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    border: 1px solid var(--glass-highlight);
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  .surface-grid {
+    background-image: radial-gradient(
+        circle at 20% 20%,
+        rgba(255, 255, 255, 0.35),
+        transparent 45%
+      ),
+      radial-gradient(circle at 80% 0%, rgba(42, 122, 255, 0.2), transparent 40%),
+      radial-gradient(circle at 0% 80%, rgba(0, 214, 173, 0.18), transparent 45%);
+  }
+
+  :root[data-theme="dark"] .surface-grid {
+    background-image: radial-gradient(
+        circle at 15% 20%,
+        rgba(118, 188, 255, 0.2),
+        transparent 45%
+      ),
+      radial-gradient(circle at 80% 10%, rgba(57, 221, 191, 0.18), transparent 50%),
+      radial-gradient(circle at 10% 80%, rgba(255, 255, 255, 0.08), transparent 50%);
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(120deg, rgb(var(--color-accent)), rgb(var(--color-accent-2)));
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .bg-blur {
+    backdrop-filter: blur(30px);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent) / 0.6);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
