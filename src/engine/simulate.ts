@@ -158,19 +158,19 @@ type CommodityProfile = {
 const commodityProfiles: Record<string, CommodityProfile> = {
   "cmd-gold": {
     anchorMin: 0.6,
-    anchorMax: 2.4,
+    anchorMax: 1.9,
     floor: 0.5,
-    meanReversion: 0.25,
-    trendDecay: 0.55,
-    shockTrend: 0.6,
-    shockAnchor: 0.3,
-    volatilityScale: 0.9,
+    meanReversion: 0.4,
+    trendDecay: 0.75,
+    shockTrend: 0.25,
+    shockAnchor: 0.18,
+    volatilityScale: 0.75,
     sensitivity: {
-      inflation: 0.0022,
-      gdp: 0.0,
-      realRate: -0.003,
-      sentiment: -0.012,
-      recession: 0.01,
+      inflation: 0.001,
+      gdp: -0.0003,
+      realRate: -0.0015,
+      sentiment: -0.004,
+      recession: 0.004,
     },
   },
   "cmd-oil": {
@@ -525,22 +525,24 @@ function updateCommodities(
     const basePrice = commodity.basePrice || commodity.price;
     const anchor = commodity.anchor || basePrice;
 
-    const macroDrift =
+    const macroDriftRaw =
       macro.inflation * profile.sensitivity.inflation +
       macro.gdp * profile.sensitivity.gdp +
       realRate * profile.sensitivity.realRate +
       macro.sentiment * profile.sensitivity.sentiment +
       (macro.phase === "recession" ? profile.sensitivity.recession : 0);
 
-    const anchorDrift = clamp(macroDrift * 0.6 + shock * profile.shockAnchor, -0.08, 0.1);
-    const nextAnchor = clamp(anchor * (1 + anchorDrift), basePrice * profile.anchorMin, basePrice * profile.anchorMax);
+    const macroDrift = clamp(macroDriftRaw, -0.02, 0.03);
+    const anchorTarget = basePrice * (1 + clamp(macroDrift * 8 + shock * profile.shockAnchor, -0.35, 0.5));
+    const nextAnchor = anchor + (anchorTarget - anchor) * 0.2;
 
     const gap = (nextAnchor - commodity.price) / Math.max(commodity.price, 1);
     const meanReversion = clamp(gap, -0.35, 0.35) * profile.meanReversion;
+    const overheat = clamp((commodity.price - nextAnchor) / Math.max(nextAnchor, 1), 0, 0.5);
     const trend = clamp(
-      commodity.trend * profile.trendDecay + macroDrift + shock * profile.shockTrend,
-      -0.18,
-      0.22
+      commodity.trend * profile.trendDecay + macroDrift * 0.6 + shock * profile.shockTrend - overheat * 0.1,
+      -0.12,
+      0.14
     );
 
     const gaussian = rngGaussian(nextState, 0, commodity.volatility * profile.volatilityScale);
