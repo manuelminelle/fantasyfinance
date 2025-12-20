@@ -29,6 +29,9 @@ export default function Settings() {
   const setAnalyticsTier = useSettingsStore((state) => state.setAnalyticsTier);
 
   const openOnboarding = useUiStore((state) => state.openOnboarding);
+  const displayName = useUiStore((state) => state.displayName);
+  const setDisplayName = useUiStore((state) => state.setDisplayName);
+  const [profileName, setProfileName] = useState(displayName ?? "");
   const [saveInfo, setSaveInfo] = useState(() => getLocalSaveInfo());
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -38,6 +41,10 @@ export default function Settings() {
   useEffect(() => {
     setSaveInfo(getLocalSaveInfo());
   }, []);
+
+  useEffect(() => {
+    setProfileName(displayName ?? "");
+  }, [displayName]);
 
   const handleExport = () => {
     const snapshot = createSnapshotFromState();
@@ -91,6 +98,25 @@ export default function Settings() {
         <GlassCard title="Preferenze" subtitle="Tema, audio e accessibilita">
           <div className="flex flex-col gap-4">
             <ThemeToggle />
+            <div className="rounded-2xl border border-border/60 bg-surface/70 px-4 py-3 text-sm">
+              <p className="font-semibold text-text">Nome profilo</p>
+              <p className="text-xs text-muted">Personalizza il saluto nella console.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={profileName}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  className="w-full rounded-full border border-border/70 bg-surface/80 px-4 py-2 text-sm text-text"
+                  placeholder="Il tuo nome"
+                />
+                <button
+                  type="button"
+                  onClick={() => setDisplayName(profileName)}
+                  className="rounded-full border border-border/70 bg-surface/80 px-4 py-2 text-xs font-semibold text-text"
+                >
+                  Salva
+                </button>
+              </div>
+            </div>
             <Switch
               checked={soundEnabled}
               onChange={() => setSoundEnabled(!soundEnabled)}

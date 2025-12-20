@@ -137,6 +137,83 @@ const phaseGrowth: Record<MacroPhase, number> = {
   recovery: 0.015,
 };
 
+type CommodityProfile = {
+  anchorMin: number;
+  anchorMax: number;
+  floor: number;
+  meanReversion: number;
+  trendDecay: number;
+  shockTrend: number;
+  shockAnchor: number;
+  volatilityScale: number;
+  sensitivity: {
+    inflation: number;
+    gdp: number;
+    realRate: number;
+    sentiment: number;
+    recession: number;
+  };
+};
+
+const commodityProfiles: Record<string, CommodityProfile> = {
+  "cmd-gold": {
+    anchorMin: 0.6,
+    anchorMax: 2.4,
+    floor: 0.5,
+    meanReversion: 0.25,
+    trendDecay: 0.55,
+    shockTrend: 0.6,
+    shockAnchor: 0.3,
+    volatilityScale: 0.9,
+    sensitivity: {
+      inflation: 0.0022,
+      gdp: 0.0,
+      realRate: -0.003,
+      sentiment: -0.012,
+      recession: 0.01,
+    },
+  },
+  "cmd-oil": {
+    anchorMin: 0.5,
+    anchorMax: 2.1,
+    floor: 0.35,
+    meanReversion: 0.2,
+    trendDecay: 0.5,
+    shockTrend: 0.85,
+    shockAnchor: 0.4,
+    volatilityScale: 1.1,
+    sensitivity: {
+      inflation: 0.0012,
+      gdp: 0.0022,
+      realRate: -0.0008,
+      sentiment: 0.004,
+      recession: -0.018,
+    },
+  },
+};
+
+const defaultCommodityProfile: CommodityProfile = {
+  anchorMin: 0.5,
+  anchorMax: 2.0,
+  floor: 0.4,
+  meanReversion: 0.2,
+  trendDecay: 0.5,
+  shockTrend: 0.6,
+  shockAnchor: 0.3,
+  volatilityScale: 1,
+  sensitivity: {
+    inflation: 0.0015,
+    gdp: 0.0015,
+    realRate: -0.001,
+    sentiment: 0,
+    recession: -0.01,
+  },
+};
+
+function getCommodityProfile(id: string) {
+  return commodityProfiles[id] ?? defaultCommodityProfile;
+}
+
 function advanceMacro(macro: MacroState, rngState: number) {
   let nextState = rngState;
   const noiseRate = rngRange(nextState, -0.08, 0.08);
@@ -440,15 +517,37 @@ function updateCommodities(
 ) {
   let nextState = rngState;
   const updated: CommodityAsset[] = [];
+  const realRate = macro.rate - macro.inflation;
 
   for (const commodity of commodities) {
+    const profile = getCommodityProfile(commodity.id);
     const shock = commodityShocks[commodity.id] ?? 0;
-    const macroTrend = macro.inflation * 0.015 + (macro.phase === "recession" ? -0.03 : 0.015);
-    const trend = clamp(macroTrend + shock, -0.12, 0.16);
-    const gaussian = rngGaussian(nextState, 0, commodity.volatility);
+    const basePrice = commodity.basePrice || commodity.price;
+    const anchor = commodity.anchor || basePrice;
+
+    const macroDrift =
+      macro.inflation * profile.sensitivity.inflation +
+      macro.gdp * profile.sensitivity.gdp +
+      realRate * profile.sensitivity.realRate +
+      macro.sentiment * profile.sensitivity.sentiment +
+      (macro.phase === "recession" ? profile.sensitivity.recession : 0);
+
+    const anchorDrift = clamp(macroDrift * 0.6 + shock * profile.shockAnchor, -0.08, 0.1);
+    const nextAnchor = clamp(anchor * (1 + anchorDrift), basePrice * profile.anchorMin, basePrice * profile.anchorMax);
+
+    const gap = (nextAnchor - commodity.price) / Math.max(commodity.price, 1);
+    const meanReversion = clamp(gap, -0.35, 0.35) * profile.meanReversion;
+    const trend = clamp(
+      commodity.trend * profile.trendDecay + macroDrift + shock * profile.shockTrend,
+      -0.18,
+      0.22
+    );
+
+    const gaussian = rngGaussian(nextState, 0, commodity.volatility * profile.volatilityScale);
     nextState = gaussian.state;
-    const change = clamp(trend + gaussian.value, -0.15, 0.2);
-    const price = clamp(commodity.price * (1 + change), 18, 3200);
+    const change = clamp(meanReversion + trend + gaussian.value, -0.2, 0.24);
+    const floor = Math.max(5, basePrice * profile.floor);
+    const price = Math.max(floor, commodity.price * (1 + change));
     const weeklyChange = (price - commodity.price) / commodity.price;
 
     updated.push({
@@ -456,6 +555,7 @@ function updateCommodities(
       price,
       weeklyChange,
       trend,
+      anchor: nextAnchor,
     });
   }
 

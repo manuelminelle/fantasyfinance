@@ -7,11 +7,14 @@ type UiState = {
   sidebarCollapsed: boolean;
   onboardingOpen: boolean;
   onboardingStep: number;
+  displayName: string | null;
   initTheme: () => void;
   initOnboarding: () => void;
+  initProfile: () => void;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
   toggleSidebar: () => void;
+  setDisplayName: (name: string) => void;
   nextOnboarding: () => void;
   prevOnboarding: () => void;
   skipOnboarding: () => void;
@@ -20,12 +23,14 @@ type UiState = {
 
 const THEME_KEY = "marketcraft-theme";
 const ONBOARDING_KEY = "marketcraft-onboarding";
+const PROFILE_NAME_KEY = "marketcraft-profile-name";
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: "dark",
   sidebarCollapsed: false,
   onboardingOpen: false,
   onboardingStep: 0,
+  displayName: null,
   initTheme: () => {
     const stored = window.localStorage.getItem(THEME_KEY);
     if (stored === "light" || stored === "dark") {
@@ -36,6 +41,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     const completed = window.localStorage.getItem(ONBOARDING_KEY) === "done";
     if (!completed) {
       set({ onboardingOpen: true, onboardingStep: 0 });
+    }
+  },
+  initProfile: () => {
+    const stored = window.localStorage.getItem(PROFILE_NAME_KEY);
+    if (stored) {
+      set({ displayName: stored });
     }
   },
   setTheme: (theme) => {
@@ -49,6 +60,12 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => {
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+  },
+  setDisplayName: (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    window.localStorage.setItem(PROFILE_NAME_KEY, trimmed);
+    set({ displayName: trimmed });
   },
   nextOnboarding: () => {
     set((state) => {

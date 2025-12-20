@@ -51,6 +51,8 @@ export type EtfAsset = {
 export type CommodityAsset = {
   id: string;
   name: string;
+  basePrice: number;
+  anchor: number;
   price: number;
   weeklyChange: number;
   volatility: number;

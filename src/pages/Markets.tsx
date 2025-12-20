@@ -44,6 +44,7 @@ export default function Markets() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(100);
+  const [mobileSort, setMobileSort] = useState<"price" | "change" | "volatility">("change");
 
   const assetsByClass = {
     stock: stocks,
@@ -55,7 +56,7 @@ export default function Markets() {
   const assetList = assetsByClass[assetClass];
 
   const filteredAssets = useMemo(() => {
-    return assetList.filter((asset) => {
+    const filtered = assetList.filter((asset) => {
       const matchesQuery = asset.name.toLowerCase().includes(query.toLowerCase());
       if (assetClass === "stock" || assetClass === "etf") {
         const withSector = asset as StockAsset | EtfAsset;
@@ -64,7 +65,15 @@ export default function Markets() {
       }
       return matchesQuery;
     });
-  }, [assetList, assetClass, sectorFilter, query]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (mobileSort === "price") return b.price - a.price;
+      if (mobileSort === "volatility") return b.volatility - a.volatility;
+      return Math.abs(b.weeklyChange) - Math.abs(a.weeklyChange);
+    });
+
+    return sorted;
+  }, [assetList, assetClass, sectorFilter, query, mobileSort]);
 
   const selectedAsset = useMemo(() => {
     const hasSelected = selectedId ? assetList.some((asset) => asset.id === selectedId) : false;
@@ -203,7 +212,67 @@ export default function Markets() {
             </div>
           )}
 
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-border/60">
+          <div className="mt-6 space-y-3 sm:hidden">
+            <div className="sticky top-3 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-surface/80 px-3 py-2 backdrop-blur">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-muted">Ordina</span>
+              {[
+                { key: "change", label: "Var%" },
+                { key: "price", label: "Prezzo" },
+                { key: "volatility", label: "Volatilita" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setMobileSort(item.key as "price" | "change" | "volatility")}
+                  aria-pressed={mobileSort === item.key}
+                >
+                  <Tag tone={mobileSort === item.key ? "positive" : "neutral"}>{item.label}</Tag>
+                </button>
+              ))}
+            </div>
+            {filteredAssets.map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                onClick={() => setSelectedId(asset.id)}
+                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                  selectedAsset?.id === asset.id
+                    ? "border-accent/50 bg-surface/80 shadow-soft"
+                    : "border-border/50 bg-surface/60"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-text">{asset.name}</p>
+                    {(assetClass === "stock" || assetClass === "etf") && (
+                      <p className="text-xs text-muted">{(asset as StockAsset | EtfAsset).sector}</p>
+                    )}
+                    {assetClass === "bond" && (
+                      <p className="text-xs text-muted">{(asset as BondAsset).duration.toFixed(1)}y</p>
+                    )}
+                    {assetClass === "commodity" && (
+                      <p className="text-xs text-muted">
+                        Trend {formatSignedPercent((asset as CommodityAsset).trend * 100, 1)}
+                      </p>
+                    )}
+                  </div>
+                  <Tag tone={asset.weeklyChange < 0 ? "negative" : "positive"}>
+                    {formatSignedPercent(asset.weeklyChange * 100, 1)}
+                  </Tag>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                  <span>Prezzo</span>
+                  <span className="font-semibold text-text">{formatCurrency(asset.price, 2)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-muted">
+                  <span>Volatilita</span>
+                  <span>{volatilityLabel(asset.volatility)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-border/60 sm:block">
             <table className="w-full min-w-[640px] table-fixed text-left text-sm" aria-label="Tabella mercati">
               <thead className="bg-surface/80 text-xs uppercase tracking-[0.18em] text-muted">
                 <tr>

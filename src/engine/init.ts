@@ -68,6 +68,8 @@ export function createInitialGameState(seed: number): GameState {
   const commodities = commoditySeeds.map((seedItem) => ({
     id: seedItem.id,
     name: seedItem.name,
+    basePrice: seedItem.price,
+    anchor: seedItem.price,
     price: seedItem.price,
     weeklyChange: 0,
     volatility: seedItem.volatility,

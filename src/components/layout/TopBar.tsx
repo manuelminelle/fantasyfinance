@@ -1,4 +1,5 @@
 import { useGameStore } from "../../store/gameStore";
+import { useUiStore } from "../../store/uiStore";
 import { formatPhase } from "../../utils/format";
 import ThemeToggle from "../ui/ThemeToggle";
 import { playSfx } from "../../services/sfx";
@@ -7,6 +8,7 @@ export default function TopBar() {
   const week = useGameStore((state) => state.game.week);
   const phase = useGameStore((state) => state.game.macro.phase);
   const endTurn = useGameStore((state) => state.endTurn);
+  const displayName = useUiStore((state) => state.displayName);
 
   const handleEndTurn = () => {
     endTurn();
@@ -17,9 +19,11 @@ export default function TopBar() {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-xs text-muted sm:text-sm">Settimana {week} · Ciclo: {formatPhase(phase)}</p>
-        <h1 className="font-display text-2xl text-text sm:text-3xl">Benvenuto, Stratega</h1>
+        <h1 className="font-display text-2xl text-text sm:text-3xl">
+          {displayName ? `Ciao, ${displayName}` : "Ciao, Stratega"}
+        </h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
         <button
           type="button"
           onClick={handleEndTurn}

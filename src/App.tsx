@@ -41,15 +41,17 @@ export default function App() {
   const theme = useUiStore((state) => state.theme);
   const initTheme = useUiStore((state) => state.initTheme);
   const initOnboarding = useUiStore((state) => state.initOnboarding);
+  const initProfile = useUiStore((state) => state.initProfile);
   const initSettings = useSettingsStore((state) => state.initSettings);
 
   useEffect(() => {
     initTheme();
     initSettings();
+    initProfile();
     initOnboarding();
     const stopPersistence = startPersistence();
     return () => stopPersistence();
-  }, [initTheme, initSettings, initOnboarding]);
+  }, [initTheme, initSettings, initProfile, initOnboarding]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

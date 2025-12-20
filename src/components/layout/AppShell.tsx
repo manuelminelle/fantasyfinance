@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import Background from "./Background";
 import MobileNav from "./MobileNav";
 import Onboarding from "../onboarding/Onboarding";
+import NamePrompt from "../onboarding/NamePrompt";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
@@ -10,6 +11,7 @@ export default function AppShell() {
   return (
     <div className="relative min-h-screen">
       <Background />
+      <NamePrompt />
       <Onboarding />
       <div className="relative z-10 flex min-h-screen">
         <Sidebar />
