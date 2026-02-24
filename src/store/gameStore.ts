@@ -4,7 +4,7 @@ import { buyAsset, sellAsset } from "../engine/portfolio";
 import { simulateTurn } from "../engine/simulate";
 import type { GameState, Position } from "../types/engine";
 
-const DEFAULT_SEED = 42817;
+const DEFAULT_SEED = Math.floor(Math.random() * 0xFFFFFF);
 
 type GameStore = {
   game: GameState;
