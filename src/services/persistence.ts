@@ -33,6 +33,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isValidGameState(obj: unknown): obj is GameState {
+  if (!isRecord(obj)) return false;
+  if (typeof obj.week !== "number" || obj.week < 0) return false;
+  if (typeof obj.seed !== "number") return false;
+  if (!isRecord(obj.portfolio)) return false;
+  if (typeof obj.portfolio.cash !== "number" || obj.portfolio.cash < 0) return false;
+  if (!isRecord(obj.assets)) return false;
+  if (!Array.isArray(obj.assets.stocks)) return false;
+  return true;
+}
+
 function hashString(value: string) {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -76,7 +87,8 @@ function parseSnapshot(raw: string): SaveSnapshot | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!isRecord(parsed)) return null;
-    if (!isRecord(parsed.game) || !isRecord(parsed.settings)) return null;
+    if (!isRecord(parsed.settings)) return null;
+    if (!isValidGameState(parsed.game)) return null;
 
     const version = typeof parsed.version === "number" ? parsed.version : LOCAL_SAVE_VERSION;
     const savedAt = typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now();
@@ -84,7 +96,7 @@ function parseSnapshot(raw: string): SaveSnapshot | null {
     return {
       version,
       savedAt,
-      game: parsed.game as GameState,
+      game: parsed.game,
       settings: parsed.settings as SettingsSnapshot,
     };
   } catch {
