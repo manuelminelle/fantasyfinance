@@ -1,6 +1,7 @@
 import { clamp } from "./math";
 import { computeFairValue } from "./valuation";
 import { rngGaussian, rngPick, rngRange, rngWeightedPick } from "./rng";
+import { SIMULATION_CONFIG as C } from "./config";
 import type {
   BondAsset,
   CommodityAsset,
@@ -216,42 +217,42 @@ function getCommodityProfile(id: string) {
 
 function advanceMacro(macro: MacroState, rngState: number) {
   let nextState = rngState;
-  const noiseRate = rngRange(nextState, -0.08, 0.08);
+  const noiseRate = rngRange(nextState, -C.macro.noiseRateRange, C.macro.noiseRateRange);
   nextState = noiseRate.state;
-  const noiseInflation = rngRange(nextState, -0.1, 0.1);
+  const noiseInflation = rngRange(nextState, -C.macro.noiseInflationRange, C.macro.noiseInflationRange);
   nextState = noiseInflation.state;
-  const noiseUnemployment = rngRange(nextState, -0.08, 0.08);
+  const noiseUnemployment = rngRange(nextState, -C.macro.noiseUnemploymentRange, C.macro.noiseUnemploymentRange);
   nextState = noiseUnemployment.state;
-  const noiseGdp = rngRange(nextState, -0.15, 0.15);
+  const noiseGdp = rngRange(nextState, -C.macro.noiseGdpRange, C.macro.noiseGdpRange);
   nextState = noiseGdp.state;
 
   const drift = phaseGrowth[macro.phase];
 
-  let rate = clamp(macro.rate + drift * 0.4 + noiseRate.value, 0, 8);
-  let inflation = clamp(macro.inflation + drift * 0.5 + noiseInflation.value, 0, 7);
-  let unemployment = clamp(macro.unemployment - drift * 0.8 + noiseUnemployment.value, 3, 12);
-  let gdp = clamp(macro.gdp + drift + noiseGdp.value, -3.5, 4.5);
+  let rate = clamp(macro.rate + drift * C.macro.rateDriftFactor + noiseRate.value, C.macro.rateMin, C.macro.rateMax);
+  let inflation = clamp(macro.inflation + drift * C.macro.inflationDriftFactor + noiseInflation.value, C.macro.inflationMin, C.macro.inflationMax);
+  let unemployment = clamp(macro.unemployment - drift * C.macro.unemploymentDriftFactor + noiseUnemployment.value, C.macro.unemploymentMin, C.macro.unemploymentMax);
+  let gdp = clamp(macro.gdp + drift + noiseGdp.value, C.macro.gdpMin, C.macro.gdpMax);
 
   const phaseRoll = rngRange(nextState, 0, 1);
   nextState = phaseRoll.state;
 
   let phase = macro.phase;
-  if (phase === "expansion" && phaseRoll.value < 0.18) {
+  if (phase === "expansion" && phaseRoll.value < C.phase.expansionToSlowdown) {
     phase = "slowdown";
-  } else if (phase === "slowdown" && phaseRoll.value < 0.22) {
-    phase = gdp < 1.2 ? "recession" : "recovery";
-  } else if (phase === "recession" && phaseRoll.value < 0.35) {
+  } else if (phase === "slowdown" && phaseRoll.value < C.phase.slowdownTransition) {
+    phase = gdp < C.phase.gdpSlowdownThreshold ? "recession" : "recovery";
+  } else if (phase === "recession" && phaseRoll.value < C.phase.recessionToRecovery) {
     phase = "recovery";
-  } else if (phase === "recovery" && phaseRoll.value < 0.3) {
+  } else if (phase === "recovery" && phaseRoll.value < C.phase.recoveryToExpansion) {
     phase = "expansion";
   }
 
-  const sentimentNoise = rngRange(nextState, -0.08, 0.08);
+  const sentimentNoise = rngRange(nextState, -C.macro.noiseSentimentRange, C.macro.noiseSentimentRange);
   nextState = sentimentNoise.state;
   const sentiment = clamp(
-    macro.sentiment + gdp * 0.05 - unemployment * 0.02 - rate * 0.015 + sentimentNoise.value,
-    -1,
-    1
+    macro.sentiment + gdp * C.macro.sentimentGdpFactor - unemployment * C.macro.sentimentUnemploymentFactor - rate * C.macro.sentimentRateFactor + sentimentNoise.value,
+    C.macro.sentimentMin,
+    C.macro.sentimentMax
   );
 
   return {
@@ -284,7 +285,7 @@ function generateEvents(week: number, rngState: number) {
   let nextState = rngState;
   const countRoll = rngRange(nextState, 0, 1);
   nextState = countRoll.state;
-  const eventCount = countRoll.value > 0.72 ? 2 : 1;
+  const eventCount = countRoll.value > C.simulation.twoEventsThreshold ? 2 : 1;
 
   const sectorSentiment: Record<Sector, number> = {
     Tech: 0,
@@ -372,11 +373,11 @@ function generateEvents(week: number, rngState: number) {
 function applyMacroShift(macro: MacroState, shift: Partial<MacroState>) {
   return {
     phase: macro.phase,
-    rate: clamp(macro.rate + (shift.rate ?? 0), 0, 8),
-    inflation: clamp(macro.inflation + (shift.inflation ?? 0), 0, 7),
-    unemployment: clamp(macro.unemployment + (shift.unemployment ?? 0), 3, 12),
-    gdp: clamp(macro.gdp + (shift.gdp ?? 0), -3.5, 4.5),
-    sentiment: clamp(macro.sentiment + (shift.sentiment ?? 0), -1, 1),
+    rate: clamp(macro.rate + (shift.rate ?? 0), C.macro.rateMin, C.macro.rateMax),
+    inflation: clamp(macro.inflation + (shift.inflation ?? 0), C.macro.inflationMin, C.macro.inflationMax),
+    unemployment: clamp(macro.unemployment + (shift.unemployment ?? 0), C.macro.unemploymentMin, C.macro.unemploymentMax),
+    gdp: clamp(macro.gdp + (shift.gdp ?? 0), C.macro.gdpMin, C.macro.gdpMax),
+    sentiment: clamp(macro.sentiment + (shift.sentiment ?? 0), C.macro.sentimentMin, C.macro.sentimentMax),
   };
 }
 
@@ -406,19 +407,19 @@ function updateStocks(
     const sectorPulse = sectorSentiment[stock.sector] ?? 0;
     const sentiment = clamp(
       stock.sentiment + sectorPulse + macro.sentiment * sensitivity.sentiment,
-      -1,
-      1
+      C.macro.sentimentMin,
+      C.macro.sentimentMax
     );
 
-    const growth = clamp(stock.fundamentals.growth + growthNoise.value + phaseGrowth[macro.phase] + macroImpulse * 0.002, -0.08, 0.18);
-    const margin = clamp(stock.fundamentals.margin + marginNoise.value - macro.inflation * 0.001, 0.08, 0.45);
-    const debt = clamp(stock.fundamentals.debt * (1 + debtNoise.value), 120, 2600);
-    const risk = clamp(stock.fundamentals.risk + riskNoise.value + (macro.phase === "recession" ? 0.02 : -0.005), 0.12, 0.6);
+    const growth = clamp(stock.fundamentals.growth + growthNoise.value + phaseGrowth[macro.phase] + macroImpulse * C.stocks.growthMacroFactor, C.stocks.growthMin, C.stocks.growthMax);
+    const margin = clamp(stock.fundamentals.margin + marginNoise.value - macro.inflation * 0.001, C.stocks.marginMin, C.stocks.marginMax);
+    const debt = clamp(stock.fundamentals.debt * (1 + debtNoise.value), C.stocks.debtMin, C.stocks.debtMax);
+    const risk = clamp(stock.fundamentals.risk + riskNoise.value + (macro.phase === "recession" ? 0.02 : -0.005), C.stocks.riskMin, C.stocks.riskMax);
 
-    const revenue = clamp(stock.fundamentals.revenue * (1 + growth), 800, 9000);
+    const revenue = clamp(stock.fundamentals.revenue * (1 + growth), C.stocks.revenueMin, C.stocks.revenueMax);
     const costs = revenue * (1 - margin);
-    const cash = clamp(stock.fundamentals.cash * (1 + growth * 0.4), 200, 2200);
-    const capex = clamp(stock.fundamentals.capex * (1 + growth * 0.3), 120, 1200);
+    const cash = clamp(stock.fundamentals.cash * (1 + growth * C.stocks.cashGrowthFactor), C.stocks.cashMin, C.stocks.cashMax);
+    const capex = clamp(stock.fundamentals.capex * (1 + growth * C.stocks.capexGrowthFactor), C.stocks.capexMin, C.stocks.capexMax);
 
     const fundamentals = {
       revenue,
@@ -436,9 +437,9 @@ function updateStocks(
     nextState = gaussian.state;
 
     const gap = (fairValue - stock.price) / stock.price;
-    const drift = gap * 0.25 + sentiment * 0.05 + macroImpulse * 0.001;
-    const change = clamp(drift + gaussian.value, -0.2, 0.2);
-    const price = clamp(stock.price * (1 + change), 4, 320);
+    const drift = gap * C.stocks.driftFairValueFactor + sentiment * C.stocks.driftSentimentFactor + macroImpulse * C.stocks.driftMacroFactor;
+    const change = clamp(drift + gaussian.value, -C.stocks.maxDriftChange, C.stocks.maxDriftChange);
+    const price = clamp(stock.price * (1 + change), C.stocks.priceMin, C.stocks.priceMax);
     const weeklyChange = (price - stock.price) / stock.price;
 
     updated.push({
@@ -462,11 +463,11 @@ function updateBonds(bonds: BondAsset[], macro: MacroState, prevMacro: MacroStat
   for (const bond of bonds) {
     const gaussian = rngGaussian(nextState, 0, bond.volatility);
     nextState = gaussian.state;
-    const durationImpact = -bond.duration * rateChange * 0.012;
-    const change = clamp(durationImpact + gaussian.value, -0.08, 0.08);
-    const price = clamp(bond.price * (1 + change), 70, 130);
+    const durationImpact = -bond.duration * rateChange * C.bonds.durationImpactFactor;
+    const change = clamp(durationImpact + gaussian.value, -C.bonds.maxPriceChange, C.bonds.maxPriceChange);
+    const price = clamp(bond.price * (1 + change), C.bonds.priceMin, C.bonds.priceMax);
     const weeklyChange = (price - bond.price) / bond.price;
-    const yieldValue = clamp((bond.coupon / price) * 100 + macro.rate * 0.25, 0, 10);
+    const yieldValue = clamp((bond.coupon / price) * 100 + macro.rate * C.bonds.yieldRateFactor, C.bonds.yieldMin, C.bonds.yieldMax);
 
     updated.push({
       ...bond,
@@ -489,13 +490,13 @@ function updateEtfs(etfs: EtfAsset[], stocks: StockAsset[], rngState: number) {
       .map((id) => priceMap.get(id))
       .filter((value): value is number => typeof value === "number");
     const average = prices.reduce((sum, value) => sum + value, 0) / Math.max(prices.length, 1);
-    const target = clamp(average * etf.trackingFactor, 18, 220);
+    const target = clamp(average * etf.trackingFactor, C.etfs.priceMin, C.etfs.priceMax);
 
     const gaussian = rngGaussian(nextState, 0, etf.volatility);
     nextState = gaussian.state;
-    const drift = ((target - etf.price) / etf.price) * 0.3;
-    const change = clamp(drift + gaussian.value, -0.12, 0.12);
-    const price = clamp(etf.price * (1 + change), 18, 220);
+    const drift = ((target - etf.price) / etf.price) * C.etfs.meanReversionFactor;
+    const change = clamp(drift + gaussian.value, -C.etfs.maxPriceChange, C.etfs.maxPriceChange);
+    const price = clamp(etf.price * (1 + change), C.etfs.priceMin, C.etfs.priceMax);
     const weeklyChange = (price - etf.price) / etf.price;
 
     updated.push({
@@ -534,13 +535,13 @@ function updateCommodities(
 
     const macroDrift = clamp(macroDriftRaw, -0.02, 0.03);
     const anchorTarget = basePrice * (1 + clamp(macroDrift * 8 + shock * profile.shockAnchor, -0.35, 0.5));
-    const nextAnchor = anchor + (anchorTarget - anchor) * 0.2;
+    const nextAnchor = anchor + (anchorTarget - anchor) * C.commodities.anchorConvergenceFactor;
 
     const gap = (nextAnchor - commodity.price) / Math.max(commodity.price, 1);
     const meanReversion = clamp(gap, -0.35, 0.35) * profile.meanReversion;
-    const overheat = clamp((commodity.price - nextAnchor) / Math.max(nextAnchor, 1), 0, 0.5);
+    const overheat = clamp((commodity.price - nextAnchor) / Math.max(nextAnchor, 1), 0, C.commodities.maxOverheat);
     const trend = clamp(
-      commodity.trend * profile.trendDecay + macroDrift * 0.6 + shock * profile.shockTrend - overheat * 0.1,
+      commodity.trend * profile.trendDecay + macroDrift * 0.6 + shock * profile.shockTrend - overheat * C.commodities.overheatPenaltyFactor,
       -0.12,
       0.14
     );
@@ -548,7 +549,7 @@ function updateCommodities(
     const gaussian = rngGaussian(nextState, 0, commodity.volatility * profile.volatilityScale);
     nextState = gaussian.state;
     const change = clamp(meanReversion + trend + gaussian.value, -0.2, 0.24);
-    const floor = Math.max(5, basePrice * profile.floor);
+    const floor = Math.max(C.commodities.priceFloorAbsolute, basePrice * profile.floor);
     const price = Math.max(floor, commodity.price * (1 + change));
     const weeklyChange = (price - commodity.price) / commodity.price;
 
@@ -602,7 +603,7 @@ export function simulateTurn(state: GameState): GameState {
   const commodityStep = updateCommodities(state.assets.commodities, macro, eventStep.commodityShocks, rngState);
   rngState = commodityStep.state;
 
-  const cashYield = state.portfolio.cash * (macro.rate / 5200);
+  const cashYield = state.portfolio.cash * (macro.rate / C.portfolio.cashYieldDivisor);
   const cash = clamp(state.portfolio.cash + cashYield, 0, 1000000);
   const netWorth = computeNetWorth(
     {
@@ -617,7 +618,7 @@ export function simulateTurn(state: GameState): GameState {
     cash
   );
 
-  const netWorthHistory = [...state.netWorthHistory, { week: state.week + 1, value: netWorth }].slice(-24);
+  const netWorthHistory = [...state.netWorthHistory, { week: state.week + 1, value: netWorth }].slice(-C.simulation.netWorthHistoryWeeks);
 
   return {
     ...state,
@@ -635,7 +636,7 @@ export function simulateTurn(state: GameState): GameState {
       cash,
     },
     events: eventStep.events,
-    newsFeed: [...eventStep.news, ...state.newsFeed].slice(0, 20),
+    newsFeed: [...eventStep.news, ...state.newsFeed].slice(0, C.simulation.maxNewsFeedItems),
     netWorthHistory,
   };
 }
