@@ -1,4 +1,4 @@
-import { lazy, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import AppShell from "./components/layout/AppShell";
@@ -19,21 +19,23 @@ function AppRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<AppShell />}>
-          <Route index element={<Dashboard />} />
-          <Route path="mercati" element={<Markets />} />
-          <Route path="portafoglio" element={<Portfolio />} />
-        <Route path="notizie" element={<News />} />
-        <Route path="ricerca" element={<Research />} />
-        <Route path="impostazioni" element={<Settings />} />
-        <Route path="scenario" element={<Scenario />} />
-        <Route path="regole" element={<Rules />} />
-      </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AnimatePresence>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen text-white/60">Caricamento...</div>}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<AppShell />}>
+            <Route index element={<Dashboard />} />
+            <Route path="mercati" element={<Markets />} />
+            <Route path="portafoglio" element={<Portfolio />} />
+            <Route path="notizie" element={<News />} />
+            <Route path="ricerca" element={<Research />} />
+            <Route path="impostazioni" element={<Settings />} />
+            <Route path="scenario" element={<Scenario />} />
+            <Route path="regole" element={<Rules />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
   );
 }
 
