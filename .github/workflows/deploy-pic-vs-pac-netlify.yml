@@ -1,0 +1,26 @@
+name: Deploy PIC vs PAC to Netlify
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/add-pic-vs-pac-backtester
+    paths:
+      - "public/pic-vs-pac/**"
+      - ".github/workflows/deploy-pic-vs-pac-netlify.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: public/pic-vs-pac
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Netlify
+        run: >-
+          npx -y @netlify/mcp@latest
+          --site-id f55e4f91-ec32-4507-a8cd-6e7f2527ec3a
+          --proxy-path "https://netlify-mcp.netlify.app//proxy/eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..p6cbwrpbEWKrnkWO.lGLx7okIPimqycoLELwr88cu8mQah4Rfr8AaGAnvLM9OY-jTFjK2OUOFVUPbcUFX1wuuX2kl_zS118UML6PZHYe3EtOT_eufBHkHVqM6NXMffu8z5C-ehaWnvob8yjt2JLDAYnkgOTyaWQoOIWSfYuCXbttmbQWmwJMgxp6rHw9Jf8zjcasrVPfBbWtflYdGytjRqU8fcqsMenyoP7CUJ0XUdBov0NhDz7S4tRmoZG3B1GEDdpFBipJSZ14_U7tSm31l6jNK6M0SUV84wzh5LAbm5wHbHQMDVydOTwDXWviL0ybZi7xfFBgIJQ5jCDHM1FaAsS5h1M9ElY7rnl-usUiPbWe9SrGgj4szmZep9MGvzFNm-pIZ7Dw7yzXFID6TqVINbNwl.p5Ps4pzaGDczuasapntFvA"
